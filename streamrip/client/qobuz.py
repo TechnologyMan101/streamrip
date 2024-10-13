@@ -162,19 +162,19 @@ class QobuzClient(Client):
             f.qobuz.secrets = c.secrets
             f.set_modified()
 
-        self.session.headers.update({"X-App-Id": str(c.app_id)})
-        
+        self.session.headers.update({"X-App-Id": c.app_id})
+
         if c.use_auth_token:
             params = {
                 "user_id": c.email_or_userid,
                 "user_auth_token": c.password_or_token,
-                "app_id": str(c.app_id),
+                "app_id": c.app_id,
             }
         else:
             params = {
                 "email": c.email_or_userid,
                 "password": c.password_or_token,
-                "app_id": str(c.app_id),
+                "app_id": c.app_id,
             }
 
         logger.debug("Request params %s", params)
@@ -198,14 +198,14 @@ class QobuzClient(Client):
 
         self.logged_in = True
 
-    async def get_metadata(self, item: str, media_type: str):
+    async def get_metadata(self, item_id: str, media_type: str):
         if media_type == "label":
-            return await self.get_label(item)
+            return await self.get_label(item_id)
 
         c = self.config.session.qobuz
         params = {
-            "app_id": str(c.app_id),
-            f"{media_type}_id": item,
+            "app_id": c.app_id,
+            f"{media_type}_id": item_id,
             # Do these matter?
             "limit": 500,
             "offset": 0,
@@ -237,7 +237,7 @@ class QobuzClient(Client):
         c = self.config.session.qobuz
         page_limit = 500
         params = {
-            "app_id": str(c.app_id),
+            "app_id": c.app_id,
             "label_id": label_id,
             "limit": page_limit,
             "offset": 0,
@@ -255,7 +255,7 @@ class QobuzClient(Client):
             self._api_request(
                 epoint,
                 {
-                    "app_id": str(c.app_id),
+                    "app_id": c.app_id,
                     "label_id": label_id,
                     "limit": page_limit,
                     "offset": offset,
@@ -303,9 +303,9 @@ class QobuzClient(Client):
         epoint = "playlist/getUserPlaylists"
         return await self._paginate(epoint, {}, limit=limit)
 
-    async def get_downloadable(self, item: str, quality: int) -> Downloadable:
+    async def get_downloadable(self, item_id: str, quality: int) -> Downloadable:
         assert self.secret is not None and self.logged_in and 1 <= quality <= 4
-        status, resp_json = await self._request_file_url(item, quality, self.secret)
+        status, resp_json = await self._request_file_url(item_id, quality, self.secret)
         assert status == 200
         stream_url = resp_json.get("url")
 
@@ -320,7 +320,9 @@ class QobuzClient(Client):
             raise NonStreamableError
 
         return BasicDownloadable(
-            self.session, stream_url, "flac" if quality > 1 else "mp3", source="qobuz"
+            self.session,
+            stream_url,
+            "flac" if quality > 1 else "mp3",
         )
 
     async def _paginate(
